@@ -1,0 +1,234 @@
+<html>
+<head>
+    <script src="{{ url_for('static', filename='js/jquery-3.3.1.min.js') }}" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <link href="{{ url_for('static', filename='css/fancy.min.css') }}" rel="stylesheet">
+    <script src="{{ url_for('static', filename='js/fancy.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <script>
+        $( document ).ready(function() {
+            $('#result').hide();
+            var url = '/alignment_service';
+            $.fn.getData = function(param) {
+                //alert(url + param)
+                $.ajax({
+                    type: 'GET',
+                    url: url,
+                    data: param,
+                    success: function(r_data) {
+                        //result = jQuery.parseJSON(result);
+                        //alert(JSON.stringify(r_data));
+                        $.fn.showScoreMatrix(r_data);
+                        $.fn.showDirMatrix(r_data);
+                        $.fn.showAligned(r_data);
+                        $('#result').show();
+                    },
+                    error: function(e) {
+                        alert('Error');
+                        alert(JSON.stringify(e));
+                    }
+                });
+            };
+            s1 = null;
+            s2 = null;
+            $( "#DoAlign" ).click(function() {
+                s1 = $('#s1').val();
+                s2 = $('#s2').val();
+                //if(s1.length != s2.length)
+                //{
+                    //alert('Sequence must be have same size');
+                    /*if(s1.length > s2.length)
+                    {
+                        for(var i=s2.length;i<s1.length;i++)
+                        {
+                            s2 = s2 + '-';
+                        }
+                        $('#s2').val(s2);
+                    }
+                    else
+                    {
+                        for(var i=s1.length;i<s2.length;i++)
+                        {
+                            s1 = s1 + '-'
+                        }
+                        $('#s1').val(s1);
+                    }*/
+                //}
+                //else
+                //{
+                    var data = $('#form').serialize();
+                    $.fn.getData(data);
+                //}
+            });
+            
+            w = 40;
+            $.fn.getColumn = function(data, type) {
+                //alert(data.score[0].length);
+                columns = [{
+                        index: 's2',
+                        title: ' ',
+                        type: 'string',
+                        width: w
+                    },{
+                        index: 'zero',
+                        title: ' ',
+                        type: type,
+                        width: w
+                }];
+                for(var i=1;i<data.score[0].length;i++)
+                {
+                    tmp = {
+                        index: s1.charAt(i-1).toLowerCase()+'_'+i,
+                        title: s1.charAt(i-1),
+                        type: type,
+                        width: w
+                    };
+                    columns.push(tmp);
+                }
+                return columns;
+            }
+            $.fn.showScoreMatrix = function(data) {
+                $('#score_matrix').empty();
+                score_columns = $.fn.getColumn(data, 'number');
+                scores = []
+                for(var i=0;i<s2.length+1;i++)
+                {
+                    tmp = {}
+                    if(i==0)
+                        tmp['s2'] = ' ';
+                    else
+                        tmp['s2'] = s2.charAt(i-1);
+
+                    tmp['zero'] = data.score[i][0];
+                    for(var j=0;j<s1.length;j++)
+                        tmp[s1.charAt(j).toLowerCase()+'_'+(j+1)] = data.score[i][j+1];
+
+                    scores.push(tmp);
+                }
+
+                score_data = {    
+                    width: w*(s1.length+2),
+                    height: w*(s2.length),
+                    data: scores,
+                    columns: score_columns
+                };
+                //score_data.data = scores;
+                //score_data.columns = score_columns
+                //alert(JSON.stringify(test_data));
+                
+                //$(function() {
+                $('#score_matrix').FancyGrid(score_data);
+            };
+            $.fn.showDirMatrix = function(data) {
+                $('#dir_matrix').empty();
+                dir_columns = $.fn.getColumn(data, 'string');
+                dirs = []
+                for(var i=0;i<s2.length+1;i++)
+                {
+                    tmp = {}
+                    if(i==0)
+                    {
+                        tmp['s2'] = ' ';
+                        tmp['zero'] = ' ';
+                    }
+                    else
+                    {
+                        tmp['s2'] = s2.charAt(i-1);
+                        tmp['zero'] =  data.direction[i][0];
+                    }
+
+                    //alert(s1.length);
+                    for(var j=0;j<s1.length;j++)
+                    {
+                        tmp_str = '';
+                        for(var k=0;k<data.direction[i][j+1].length;k++)
+                            tmp_str = tmp_str + data.direction[i][j+1][k];
+                        if(s1.charAt(j)!='-')
+                            tmp[s1.charAt(j).toLowerCase()+'_'+(j+1)] = tmp_str;
+                        else
+                            tmp['x_'+(j+1)] = tmp_str;
+                    }
+                    dirs.push(tmp);
+                }
+
+                dirs_data = {    
+                    width: w*(s1.length+2),
+                    height: w*(s2.length),
+                    data: dirs,
+                    columns: dir_columns
+                };
+                $('#dir_matrix').FancyGrid(dirs_data);
+            }
+            $.fn.showAligned = function(data)
+            {
+                $('#aligned').empty();
+                data = data.result;
+                result_text = '';
+                for(var i=0;i<data.length;i++)
+                {
+                    tmp_all = '<div style="margin-left:5%;margin-right:5%;width:100%;">Aligned Sequence - ' + (i+1) + '<br /><table border=0>'
+                    tmp_seq1 = '<tr>';
+                    tmp_seq2 = '<tr>';
+                    tmp_rel = '<tr>';
+                    tmp_score = '<tr>';
+                    for(var j=0;j<data[i].relation.length;j++)
+                    {
+                        tmp_seq1 += '<td align="center">' + data[i].seq1[j] + '</td>';
+                        tmp_seq2 += '<td align="center">' + data[i].seq2[j] + '</td>';
+                        tmp_rel += '<td align="center">' + data[i].relation[j] + '</td>';
+                        s = '';
+                        if(data[i].score[j]>0) { s = '+'+data[i].score[j];} else { s = data[i].score[j];}
+                        tmp_score += '<td align="center">' + s + '</td>';
+                    }
+                    tmp_seq1 += '</tr>';
+                    tmp_seq2 += '</tr>';
+                    tmp_rel += '</tr>';
+                    tmp_score += '</tr>';
+                    tmp_total_score = '<tr><td align="right" colspan="' + data[i].relation.length + '">Total Score : ' + data[i].total_score + '</td></tr>';
+                    //tmp_total_score = data[i].total_score + '<br />';
+                    tmp_all += tmp_seq2+tmp_rel+tmp_seq1+tmp_score+tmp_total_score+'</table></div><br />';
+                    result_text += tmp_all;
+                }
+                $('#aligned').html(result_text);
+            }
+        });
+        
+    </script>
+</head>
+<body>
+    <form style="margin-left:10%;margin-right:10%;" id="form">
+        <div class="form-group">
+            <label for="s1">Sequence 1:</label>
+            <input type="text" name="s1" value="ATTGCCCATTTG" class="form-control" id="s1">
+        </div>
+        <div class="form-group">
+            <label for="s2">Sequence 2:</label>
+            <input type="text" name="s2" value="ACTGCAACTTGA" class="form-control" id="s2">
+        </div>
+        <div class="form-group">
+            <label for="match">Match Score:</label>
+            <input type="text" name="match" value="1" class="form-control" id="match">
+        </div>
+        <div class="form-group">
+            <label for="missmatch">Missmatch Score:</label>
+            <input type="text" name="missmatch" value="-1" class="form-control" id="missmatch">
+        </div>
+        <div class="form-group">
+            <label for="gap">Gap Score:</label>
+            <input type="text" name="gap" value="-2" class="form-control" id="gap">
+        </div>
+        <button id="DoAlign" type="button" class="btn btn-primary">Do Alignment</button>
+    </form>
+    <div id="result">
+        <p style="margin-left:5%;margin-right:5%;">Alignment Score</p>
+        <div style="margin-left:5%;margin-right:5%;" id="score_matrix"></div><br />
+        <p style="margin-left:5%;margin-right:5%;">Alignment Direction<br />
+        L : Left<br />
+        D : Diagonal<br />
+        U : Up<br /></p>
+        <div style="margin-left:5%;margin-right:5%;" id="dir_matrix"></div>
+        <br />
+        <div style="margin-left:5%;margin-right:5%;" id="aligned"></div>
+    </div>
+</body>
+</html>
